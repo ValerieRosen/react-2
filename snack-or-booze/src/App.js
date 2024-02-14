@@ -2,24 +2,48 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter } from "react-router-dom";
 import "./App.css";
 import Home from "./Home";
-import SnackOrBoozeApi from "./Api";
+import { fetchItems, addItem as addItemApi } from "./Api";
 import NavBar from "./NavBar";
 import { Route, Switch } from "react-router-dom";
-import Menu from "./FoodMenu";
-import Snack from "./FoodItem";
+import Menu from "./Menu";
+import Item from "./Item.js";
+import slugify from "slugify";
+import AddForm from "./AddForm";
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
-  const [snacks, setSnacks] = useState([]);
+  const [menu, setMenu] = useState({
+    snacks: [],
+    drinks: [],
+  });
 
-  useEffect(() => {
-    async function getSnacks() {
-      let snacks = await SnackOrBoozeApi.getSnacks();
-      setSnacks(snacks);
+  //Loading backend data
+
+  useEffect(function () {
+    async function getAllItems() {
+      const snacks = await fetchItems("snacks");
+      const drinks = await fetchItems("drinks");
+      setMenu({ drinks, snacks });
       setIsLoading(false);
     }
-    getSnacks();
+    getAllItems();
   }, []);
+
+  //Call API to add "snacks" or "drinks" items & update state
+
+  async function addItem(type, { name, description, recipe, serve }) {
+    let id = slugify(name, { lower: true });
+    let objData = { id, name, description, recipe, serve };
+    await addItemApi(type, objData);
+    setMenu((m) => ({
+      ...m,
+      [type]: [...m[type], objData],
+    }));
+  }
+
+  //Render app
+
+  let { snacks, drinks } = menu;
 
   if (isLoading) {
     return <p>Loading &hellip;</p>;
@@ -32,13 +56,22 @@ function App() {
         <main>
           <Switch>
             <Route exact path="/">
-              <Home snacks={snacks} />
+              <Home snacks={snacks} drinks={drinks} />
             </Route>
             <Route exact path="/snacks">
               <Menu snacks={snacks} title="Snacks" />
             </Route>
             <Route path="/snacks/:id">
-              <Snack items={snacks} cantFind="/snacks" />
+              <Item items={snacks} cantFind="/snacks" />
+            </Route>
+            <Route exact path="/drinks">
+              <Menu drinks={drinks} title="Drinks" />
+            </Route>
+            <Route path="/drinks/:id">
+              <Item items={drinks} cantFind="/drinks" />
+            </Route>
+            <Route path="/add">
+              <AddForm addItem={addItem} />
             </Route>
             <Route>
               <p>Hmmm. I can't seem to find what you want.</p>
